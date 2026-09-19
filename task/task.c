@@ -1,11 +1,69 @@
 #include "../include/task.h"
+#include <stdlib.h>
 #include <string.h>
 
-extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
-                        const int rows_a, const int cols_b, const int inner,
-                        const double alpha, const double* a, const int lda,
-                        const double* b, const int ldb, const double beta,
-                        double* c, const int ldc);
+static int multiply_sparse_b(const double* A, const double* B, double* C,
+                             int M, int K, int N)
+{
+    size_t* row_offsets = malloc((size_t)(K + 1) * sizeof(*row_offsets));
+    if (row_offsets == NULL)
+        return 0;
+
+    row_offsets[0] = 0;
+    for (int k = 0; k < K; ++k) {
+        size_t count = 0;
+        const double* b = B + (size_t)k * N;
+        for (int j = 0; j < N; ++j)
+            count += b[j] != 0.0;
+        row_offsets[k + 1] = row_offsets[k] + count;
+    }
+
+    const size_t nnz = row_offsets[K];
+    if (nnz * 5 > (size_t)K * N) {
+        free(row_offsets);
+        return 0;
+    }
+
+    int* columns = malloc(nnz * sizeof(*columns));
+    double* values = malloc(nnz * sizeof(*values));
+    if (columns == NULL || values == NULL) {
+        free(values);
+        free(columns);
+        free(row_offsets);
+        return 0;
+    }
+
+#pragma omp parallel for schedule(static)
+    for (int k = 0; k < K; ++k) {
+        size_t p = row_offsets[k];
+        const double* b = B + (size_t)k * N;
+        for (int j = 0; j < N; ++j) {
+            if (b[j] != 0.0) {
+                columns[p] = j;
+                values[p] = b[j];
+                ++p;
+            }
+        }
+    }
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < M; ++i) {
+        double* c = C + (size_t)i * N;
+        memset(c, 0, (size_t)N * sizeof(double));
+        for (int k = 0; k < K; ++k) {
+            const double aik = A[(size_t)i * K + k];
+            if (aik == 0.0)
+                continue;
+            for (size_t p = row_offsets[k]; p < row_offsets[k + 1]; ++p)
+                c[columns[p]] += aik * values[p];
+        }
+    }
+
+    free(values);
+    free(columns);
+    free(row_offsets);
+    return 1;
+}
 
 static void multiply_k8(const double* A, const double* B, double* C,
                         int M, int N)
@@ -41,10 +99,9 @@ void multiply_naive(const double* A, const double* B, double* C,
         multiply_k8(A, B, C, M, N);
         return;
     }
-    if (K >= 2048) {
-        cblas_dgemm(101, 111, 111, M, N, K, 1.0, A, K, B, N, 0.0, C, N);
+    if (M >= 4096 && N >= 4096 && K <= 1024
+        && multiply_sparse_b(A, B, C, M, K, N))
         return;
-    }
 
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < M; ++i) {
