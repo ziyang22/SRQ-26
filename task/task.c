@@ -1,4 +1,7 @@
 #include "../include/task.h"
+#if defined(__GNUC__) && defined(__x86_64__)
+#include <immintrin.h>
+#endif
 #include <omp.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +34,9 @@
 #endif
 #ifndef SRQ_SPARSE_FLOAT_VALUES
 #define SRQ_SPARSE_FLOAT_VALUES 0
+#endif
+#ifndef SRQ_SPARSE_UNROLL
+#define SRQ_SPARSE_UNROLL 0
 #endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
@@ -166,6 +172,64 @@ static int multiply_sparse_blocked(const double* A, const double* B, double* C,
 }
 #endif
 
+#if SRQ_SPARSE_UNROLL > 0 && !SRQ_SPARSE_FLOAT_VALUES
+__attribute__((target("avx512f")))
+static inline void sparse_axpy(double* c, const int* columns,
+                               const double* values, size_t first, size_t last,
+                               double aik)
+{
+    const __m512d va = _mm512_set1_pd(aik);
+    size_t p = first;
+#if SRQ_SPARSE_UNROLL >= 4
+    for (; p + 32 <= last; p += 32) {
+        const __m256i i0 = _mm256_loadu_si256((const __m256i*)(columns + p));
+        const __m256i i1 = _mm256_loadu_si256((const __m256i*)(columns + p + 8));
+        const __m256i i2 = _mm256_loadu_si256((const __m256i*)(columns + p + 16));
+        const __m256i i3 = _mm256_loadu_si256((const __m256i*)(columns + p + 24));
+        __m512d c0 = _mm512_i32gather_pd(i0, c, 8);
+        __m512d c1 = _mm512_i32gather_pd(i1, c, 8);
+        __m512d c2 = _mm512_i32gather_pd(i2, c, 8);
+        __m512d c3 = _mm512_i32gather_pd(i3, c, 8);
+        const __m512d b0 = _mm512_loadu_pd(values + p);
+        const __m512d b1 = _mm512_loadu_pd(values + p + 8);
+        const __m512d b2 = _mm512_loadu_pd(values + p + 16);
+        const __m512d b3 = _mm512_loadu_pd(values + p + 24);
+        c0 = _mm512_add_pd(c0, _mm512_mul_pd(va, b0));
+        c1 = _mm512_add_pd(c1, _mm512_mul_pd(va, b1));
+        c2 = _mm512_add_pd(c2, _mm512_mul_pd(va, b2));
+        c3 = _mm512_add_pd(c3, _mm512_mul_pd(va, b3));
+        _mm512_i32scatter_pd(c, i0, c0, 8);
+        _mm512_i32scatter_pd(c, i1, c1, 8);
+        _mm512_i32scatter_pd(c, i2, c2, 8);
+        _mm512_i32scatter_pd(c, i3, c3, 8);
+    }
+#endif
+#if SRQ_SPARSE_UNROLL >= 2
+    for (; p + 16 <= last; p += 16) {
+        const __m256i i0 = _mm256_loadu_si256((const __m256i*)(columns + p));
+        const __m256i i1 = _mm256_loadu_si256((const __m256i*)(columns + p + 8));
+        __m512d c0 = _mm512_i32gather_pd(i0, c, 8);
+        __m512d c1 = _mm512_i32gather_pd(i1, c, 8);
+        const __m512d b0 = _mm512_loadu_pd(values + p);
+        const __m512d b1 = _mm512_loadu_pd(values + p + 8);
+        c0 = _mm512_add_pd(c0, _mm512_mul_pd(va, b0));
+        c1 = _mm512_add_pd(c1, _mm512_mul_pd(va, b1));
+        _mm512_i32scatter_pd(c, i0, c0, 8);
+        _mm512_i32scatter_pd(c, i1, c1, 8);
+    }
+#endif
+    for (; p + 8 <= last; p += 8) {
+        const __m256i index = _mm256_loadu_si256((const __m256i*)(columns + p));
+        __m512d cv = _mm512_i32gather_pd(index, c, 8);
+        const __m512d bv = _mm512_loadu_pd(values + p);
+        cv = _mm512_add_pd(cv, _mm512_mul_pd(va, bv));
+        _mm512_i32scatter_pd(c, index, cv, 8);
+    }
+    for (; p < last; ++p)
+        c[columns[p]] += aik * values[p];
+}
+#endif
+
 static int multiply_sparse_b(const double* A, const double* B, double* C,
                              int M, int K, int N)
 {
@@ -229,11 +293,15 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
             const double aik = A[(size_t)i * K + k];
             if (aik == 0.0)
                 continue;
+#if SRQ_SPARSE_UNROLL > 0 && !SRQ_SPARSE_FLOAT_VALUES
+            sparse_axpy(c, columns, values, row_offsets[k], row_offsets[k + 1], aik);
+#else
 #if SRQ_SPARSE_SIMD
 #pragma omp simd
 #endif
             for (size_t p = row_offsets[k]; p < row_offsets[k + 1]; ++p)
                 c[columns[p]] += aik * values[p];
+#endif
         }
     }
 
