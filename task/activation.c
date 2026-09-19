@@ -4,9 +4,12 @@
 /*
  * 尾处理链（epilogue）：epilogue(x) = sigmoid(x * scale + bias)
  */
+#if defined(__GNUC__)
+__attribute__((optimize("fast-math")))
+#endif
 void epilogue_optimized(double* data, size_t size)
 {
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for simd schedule(static)
     for (size_t i = 0; i < size; ++i) {
         const double x = data[i] * EPILOGUE_SCALE + EPILOGUE_BIAS;
         data[i] = 1.0 / (1.0 + exp(-x));
