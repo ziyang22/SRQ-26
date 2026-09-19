@@ -43,4 +43,4 @@
 | 4 | 0.376709 | 0.687851 | 0.548x |
 | 加权 `2:2:2:4` | | **固定 baseline 数据写入 `baseline.tsv`** | candidate speedup = fixed native baseline / timed Task candidate |
 
-五次运行四个 case 的最终输出均通过误差 `1e-6` 校验。固定 Task baseline 已写入 `experiments/EXP-001-openblas-reference-20260919/baseline.tsv`，后续候选只与该文件的实测中位数比较，不把时间常量注入计时或判分代码。microbench 输出：`memcpy_gib_s=8.850`、`omp_threads=32`、`matmul_gflop_s=63.799`、`checksum=0.008192`。详见 `experiments/EXP-001-openblas-reference-20260919/README.md`。
+已完成的候选运行均通过误差 `1e-6` 校验。固定 Task baseline 已写入 `experiments/EXP-001-openblas-reference-20260919/baseline.tsv`，后续候选只与该文件的实测中位数比较，不把时间常量注入计时或判分代码。当前阶段只保留两次候选采样，第三次中止，不作统计结论。硬件探测记录了 64 B cache line、L1/L2/L3 拓扑、perf cache 计数和 IMC 读写带宽。详见 `experiments/EXP-001-openblas-reference-20260919/README.md`。
