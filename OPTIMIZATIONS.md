@@ -113,3 +113,14 @@
 - **旁置条件**：包含 EXP-006 scatter 和 EXP-007 slab-BLAS；相对 EXP-007 的完整加权受 case 3 噪声混淆，case 4 从 `0.052778 s` 稳定降至约 `0.043 s` 是最清楚证据。
 - **推理链**：自动向量化两次失败且汇编仍为标量 `exp`；显式 ABI 后 codegen 和 case 4 时间同时改变，机制成立。最终 commit `db03aa9` 在远端独立重建后再次通过 correctness 和四个正式 case。
 - **Outcome**: keep；当前最优
+
+## EXP-009: theoretical peak and nominal FLOPS reporting (算子家族：7)
+
+- **动机**：在正式 speedup 旁输出可复核的吞吐口径，并与 32 核 FP64 理论峰值对照。
+- **改动**：benchmark 输出 `2*M*K*N / end-to-end seconds` 的 nominal GEMM GFLOP/s、相对 2.5 GHz 基频峰值比例，以及按 `2:2:2:4` 加权的 nominal throughput；计时区间和判分逻辑未改变。
+- **理论口径**：cpuset `0-31` 是 32 个不同物理核；每核两条 512-bit FP64 FMA，每周期 `2*8*2=32` FLOP。2.5 GHz 基频峰值为 `2560.0 GFLOP/s`；4.1 GHz 最大睿频只作为非持续上界，为 `4198.4 GFLOP/s`。
+- **环境**：同 EXP-002；commit `4c58c73`。
+- **正确性**：远端 `test` 退出码 0 并输出 `Correctness test passed!`；四个正式 case 均通过。
+- **原始数字**：case 时间 `0.024787/0.033491/0.095988/0.044987 s`；speedup `47.115/68.128/586.013/15.290x`；nominal throughput `346.5/513.0/2237.2/23.9 GFLOP/s`；加权 speedup `146.367x`，加权 nominal throughput `628.9 GFLOP/s`。
+- **旁置条件**：case 3 的 `2237.2 GFLOP/s` 是 dense-equivalent，分子包含被稀疏实现跳过的零乘加，不代表实际执行 FLOP/s。所有 case 的分母包含 sigmoid，但分子不计 sigmoid 操作。
+- **Outcome**: neutral；仅增加报告，不改变优化路径

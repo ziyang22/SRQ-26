@@ -22,6 +22,8 @@
 | case 3 speedup | 574.211x | 三次正式运行中值，10240x1024x10240，5% 稀疏 |
 | case 4 speedup | 16.019x | 三次正式运行中值，8192x8x8192 |
 | 加权端到端 speedup | 143.878x | 三次正式输出 143.878x / 142.591x / 148.416x 的中值，权重 2:2:2:4 |
+| 32 核 FP64 理论峰值 | 2560.0 GFLOP/s | 2.5 GHz 基频；4.1 GHz 最大睿频上界为 4198.4 GFLOP/s |
+| 加权 nominal throughput | 628.9 GFLOP/s | commit `4c58c73` 单次正式运行；`2MKN/end-to-end time` |
 
 当前最优使用按形状分派：规则 dense case 由 OpenMP 切分 M 维并调用单线程 OpenBLAS，case 3 在单次调用内压缩 B 后执行稀疏更新，case 4 使用 K=8 专用 AVX-512 路径；尾处理调用 glibc libmvec 的 AVX-512 `exp` ABI。转换、分派与尾处理均包含在正式计时内。
 
