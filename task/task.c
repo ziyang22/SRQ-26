@@ -29,6 +29,9 @@
 #ifndef SRQ_SPARSE_SIMD
 #define SRQ_SPARSE_SIMD 1
 #endif
+#ifndef SRQ_SPARSE_FLOAT_VALUES
+#define SRQ_SPARSE_FLOAT_VALUES 0
+#endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
                         const int rows_a, const int cols_b, const int inner,
@@ -188,7 +191,11 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
     }
 
     int* columns = malloc(nnz * sizeof(*columns));
+#if SRQ_SPARSE_FLOAT_VALUES
+    float* values = malloc(nnz * sizeof(*values));
+#else
     double* values = malloc(nnz * sizeof(*values));
+#endif
     if (columns == NULL || values == NULL) {
         free(values);
         free(columns);
@@ -203,7 +210,11 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
         for (int j = 0; j < N; ++j) {
             if (b[j] != 0.0) {
                 columns[p] = j;
+#if SRQ_SPARSE_FLOAT_VALUES
+                values[p] = (float)b[j];
+#else
                 values[p] = b[j];
+#endif
                 ++p;
             }
         }
