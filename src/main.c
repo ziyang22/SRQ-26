@@ -128,9 +128,21 @@ static const double native_baseline_seconds[] = {
     1.167841, 2.281671, 56.250248, 0.687851
 };
 
+/*
+ * Xeon Gold 6548Y+: two 512-bit FP64 FMA units per core.
+ * Each core can therefore retire 2 units * 8 lanes * 2 FLOP = 32 FLOP/cycle.
+ */
+static const double fp64_base_peak_gflops = 32.0 * 2.5 * 32.0;
+static const double fp64_max_turbo_peak_gflops = 32.0 * 4.1 * 32.0;
+
 void run_benchmark() {
     printf("--- Running performance benchmark ---\n");
     printf("Fixed native baseline; BLAS oracle excluded from timing\n");
+    printf("32-core theoretical FP64 peak: %.1f GFLOP/s at 2.5 GHz base; "
+           "%.1f GFLOP/s at 4.1 GHz max-turbo upper bound\n",
+           fp64_base_peak_gflops, fp64_max_turbo_peak_gflops);
+    printf("Reported throughput uses nominal 2*M*K*N GEMM FLOPs over timed "
+           "matmul+epilogue seconds; sigmoid FLOPs are not counted.\n");
 
     const char* name_list[] = {"case 1", "case 2", "case 3", "case 4"};
     int    M_list[]       = {1024,  2048, 10240, 8192};
@@ -142,6 +154,7 @@ void run_benchmark() {
 
     struct timeval start, end;
     double total_weight = 0.0, weighted_speedup = 0.0;
+    double weighted_gflops = 0.0;
 
     for (int i = 0; i < num_cases; ++i) {
         int M = M_list[i], K = K_list[i], N = N_list[i];
@@ -177,10 +190,17 @@ void run_benchmark() {
 
         double t_base = native_baseline_seconds[i];
         double speedup = t_base / t_opt;
+        double nominal_gflops = 2.0 * (double)M * (double)K * (double)N
+                                / (t_opt * 1e9);
         printf("Fixed native baseline (metadata): %f s\n", t_base);
         printf("Task candidate (timed): %f s   (Speedup: %.3fx)\n", t_opt, speedup);
+        printf("Nominal GEMM throughput: %.1f GFLOP/s (%.1f%% of 2.5 GHz peak)%s\n",
+               nominal_gflops,
+               nominal_gflops * 100.0 / fp64_base_peak_gflops,
+               density > 0.0 ? " [dense-equivalent; zero work is skipped]" : "");
 
         weighted_speedup += speedup * weight_list[i];
+        weighted_gflops += nominal_gflops * weight_list[i];
         total_weight += weight_list[i];
 
         // 端到端正确性校验：两个管线的最终输出逐元素比对
@@ -204,6 +224,8 @@ void run_benchmark() {
 
     printf("\033[1;34mWeighted end-to-end speedup (2:2:2:4): %.3fx\033[0m\n",
            weighted_speedup / total_weight);
+    printf("Weighted nominal GEMM throughput (2:2:2:4): %.1f GFLOP/s\n",
+           weighted_gflops / total_weight);
 }
 
 // -----------------------------------------------------------
