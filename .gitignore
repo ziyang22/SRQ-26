@@ -1,0 +1,22 @@
+# CMake and local build outputs
+/build/
+/cmake-build-*/
+/CMakeFiles/
+/CMakeCache.txt
+/Makefile
+/cmake_install.cmake
+/run_matrix_multiplication
+*.o
+*.so
+
+# Generated scheduler files, remote sync data, and logs
+/jobs/.generated/
+/.remote-sync/
+*.out
+*.err
+perf.data*
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/

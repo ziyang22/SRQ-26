@@ -1,0 +1,6 @@
+# SRQ-26 结构化实验账本。每条实验一行，制表符分隔。
+# op_family: 1=边界一致性 2=相位消除 3=调度结构 4=内存放置 5=构建旗标 6=延迟隐藏 7=判据/探针 8=正确性修复
+# source: self/reprice/deconf/enum/external 等来源标签可按 PLAYBOOK.md 使用
+# verdict: keep / reject / neutral
+# base_score/cand_score: 四个 case speedup 与 2:2:2:4 加权值，格式应在首条实验中固定
+exp_id	date	op_family	source	title	base_commit	base_score	cand_score	verdict	confound	note
