@@ -11,11 +11,17 @@
 #define PROFILE_PRINT(...) ((void)0)
 #endif
 
-#ifndef SRQ_DENSE_M_THREADS
-#define SRQ_DENSE_M_THREADS 32
+#ifndef SRQ_DENSE_CASE1_M_THREADS
+#define SRQ_DENSE_CASE1_M_THREADS 4
 #endif
-#ifndef SRQ_DENSE_N_THREADS
-#define SRQ_DENSE_N_THREADS 1
+#ifndef SRQ_DENSE_CASE1_N_THREADS
+#define SRQ_DENSE_CASE1_N_THREADS 8
+#endif
+#ifndef SRQ_DENSE_CASE2_M_THREADS
+#define SRQ_DENSE_CASE2_M_THREADS 16
+#endif
+#ifndef SRQ_DENSE_CASE2_N_THREADS
+#define SRQ_DENSE_CASE2_N_THREADS 2
 #endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
@@ -107,17 +113,21 @@ static void multiply_dense_blas(const double* A, const double* B, double* C,
                                 int M, int K, int N)
 {
     const double t_start = PROFILE_NOW();
+    const int m_threads = K >= 4096 ? SRQ_DENSE_CASE1_M_THREADS
+                                    : SRQ_DENSE_CASE2_M_THREADS;
+    const int n_threads = K >= 4096 ? SRQ_DENSE_CASE1_N_THREADS
+                                    : SRQ_DENSE_CASE2_N_THREADS;
     const int saved_threads = openblas_get_num_threads();
     openblas_set_num_threads(1);
-#pragma omp parallel num_threads(SRQ_DENSE_M_THREADS * SRQ_DENSE_N_THREADS)
+#pragma omp parallel num_threads(m_threads * n_threads)
     {
         const int tid = omp_get_thread_num();
-        const int m_part = tid / SRQ_DENSE_N_THREADS;
-        const int n_part = tid % SRQ_DENSE_N_THREADS;
-        const int first_m = (int)((long long)M * m_part / SRQ_DENSE_M_THREADS);
-        const int last_m = (int)((long long)M * (m_part + 1) / SRQ_DENSE_M_THREADS);
-        const int first_n = (int)((long long)N * n_part / SRQ_DENSE_N_THREADS);
-        const int last_n = (int)((long long)N * (n_part + 1) / SRQ_DENSE_N_THREADS);
+        const int m_part = tid / n_threads;
+        const int n_part = tid % n_threads;
+        const int first_m = (int)((long long)M * m_part / m_threads);
+        const int last_m = (int)((long long)M * (m_part + 1) / m_threads);
+        const int first_n = (int)((long long)N * n_part / n_threads);
+        const int last_n = (int)((long long)N * (n_part + 1) / n_threads);
         if (last_m > first_m && last_n > first_n) {
             cblas_dgemm(101, 111, 111, last_m - first_m, last_n - first_n, K,
                         1.0, A + (size_t)first_m * K, K,
