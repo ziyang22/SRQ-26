@@ -26,6 +26,9 @@
 #ifndef SRQ_SPARSE_N_BLOCKS
 #define SRQ_SPARSE_N_BLOCKS 1
 #endif
+#ifndef SRQ_SPARSE_SIMD
+#define SRQ_SPARSE_SIMD 1
+#endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
                         const int rows_a, const int cols_b, const int inner,
@@ -215,7 +218,9 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
             const double aik = A[(size_t)i * K + k];
             if (aik == 0.0)
                 continue;
+#if SRQ_SPARSE_SIMD
 #pragma omp simd
+#endif
             for (size_t p = row_offsets[k]; p < row_offsets[k + 1]; ++p)
                 c[columns[p]] += aik * values[p];
         }
