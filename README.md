@@ -1,61 +1,42 @@
-你的任务是：利用你的计算机的**CPU**，**在保证计算结果正确的前提下，让一个矩阵乘法 + 激活函数程序跑得更快**。
+# SRQ-26
 
----
+CPU 矩阵乘法与 Sigmoid 尾处理优化项目。
 
-## 1. 题目描述
+## 任务
 
-先做一次**矩阵乘法** `C = A × B`，再对结果矩阵 `C` 逐个元素做一次 **Sigmoid 激活函数**。
+优化 `C = A × B` 以及逐元素 `sigmoid(C × 0.5 + 0.1)`，在保持正确性的前提下提高端到端 speedup。正式 benchmark 包含四组固定 case，最终指标为权重 `2:2:2:4` 的加权 speedup。
 
-程序会用两种实现算同一件事，然后对比运行时间。
+允许修改的实现位于 `task/`；`src/` 中的参考实现、测试和计时逻辑默认保持不变。详细规则见 [AGENTS.md](AGENTS.md)，实验流程见 [CLAUDE.md](CLAUDE.md) 和 [PLAYBOOK.md](PLAYBOOK.md)。
 
-## 2. 编译
+## 本地验证
 
-cmake -B build -S .
-
-cmake --build build
-
-
-编译成功后，项目根目录下会出现一个叫 `run_matrix_multiplication` 的文件，这就是可以运行的程序。
-
-## 3. 运行程序
-
-这个程序有两种运行模式。
-
-### 一：正确性验证
-
-```Plain Text
-./run_matrix_multiplication test
+```sh
+./run.sh test
+./run.sh benchmark
 ```
 
-它会用一个较小的矩阵，检查你的优化版和基准版算出来的结果**是否一致**。看到绿色的 `Correctness passed!` 就说明结果正确。
+`run.sh` 优先使用 CMake；远程节点没有 CMake 时自动回退到 GCC 直接构建。性能结论以远程节点上的 32 逻辑 CPU 限制为准。
 
-> `./` 的意思是“运行当前目录下的这个程序”，不能省略。
+## 远程运行
 
-### 二：性能测试
-
-```Plain Text
-./run_matrix_multiplication
+```sh
+scripts/remote-probe.sh
+scripts/remote-run.sh test
+scripts/remote-run.sh benchmark
 ```
 
-它会用 4 组不同规模的矩阵分别计时，打印基准版和优化版的耗时，以及**加速比（Speedup）**。最后给出一个加权平均的总成绩。
+远程节点通过 GitHub `origin` 同步，要求本地改动已经提交并推送，且本地和远程工作区干净。连接参数、硬件信息和安全限制见 [AGENTS.md](AGENTS.md)。
 
-> **注意**：性能测试中有的样例可能要跑好几分钟，请耐心等待。这正是你需要优化的原因。
+## 目录
 
----
-
-## 4. 项目结构
-
-```Plain Text
-SRQ-26/
-├── CMakeLists.txt              编译配置
-├── README.md                     本说明文档
-├── include/
-│   ├── task.h                 矩阵乘法函数声明
-│   └── activation.h           Sigmoid 函数声明
-├── src/
-│   ├── main.c                 主程序：矩阵定义、计时、正确性验证
-│   └── activ_baseline.c       Sigmoid 基准版
-└── task/
-    ├──task.c                  矩阵乘法，优化对象 ★
-    └── activation.c           Sigmoid 激活，优化对象 ★
+```text
+task/          优化实现
+src/           参考实现、harness 和入口
+include/       公共头文件
+scripts/       远程运行和检查脚本
+experiments/   实验配方与结果摘要
+archive/       退出当前构建路径的代码归档
+build/         临时构建产物，不提交
 ```
+
+仓库地址：<https://github.com/ziyang22/SRQ-26>

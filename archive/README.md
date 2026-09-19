@@ -1,3 +1,9 @@
 # Archive
 
-Store retired implementations and reproducibility snapshots here, under a dated or experiment-numbered subdirectory. Archived code is read-only by convention and must not be added to the active CMake target unless the experiment explicitly reopens it.
+存放已退出当前构建路径的实现和可复现快照。归档约定：
+
+- 子目录命名为 `archive/<日期或实验编号>-<主题>/`，例如 `archive/EXP-003-threaded-tile/`；
+- 目录内保留原始源码，并加一份简短说明，写清来源 commit、被替换的原因和对应实验结果；
+- 归档代码默认只读，不加入当前 CMake 目标；重新启用必须作为新实验记录，而不是静默改回。
+
+不删除历史实现，也不把归档代码复制回 `task/` 之外的其他目录。

@@ -49,7 +49,7 @@
 
 最终指标是程序输出的 `Weighted end-to-end speedup (2:2:2:4)`。成绩包含矩阵乘法和尾处理的端到端时间；不得用自建 microbenchmark 替代正式成绩。
 
-基线与候选比较时必须使用相同编译器、编译选项、线程环境和机器资源。当前仓库没有已确认的目标机拓扑、线程上限或 NUMA 结论，不得从其他项目照搬。
+基线与候选比较时必须使用相同编译器、编译选项、线程环境和机器资源。当前目标节点已确认是双路 Intel Xeon Gold 6548Y+，2 个 NUMA 节点；正式实验固定限制在 32 个逻辑 CPU 内。NUMA 绑定、CPU 集合和 OpenMP 设置属于实验变量，必须记录，不得从其他项目照搬。
 
 ## 远程运行环境
 
@@ -77,7 +77,7 @@ ssh -p 17255 nvidia@global.prd.ga.launchpad.nvidia.com
 ## 构建事实
 
 - C99，默认 `Release` 构建。
-- CMake 会探测 OpenMP；远程 GCC 环境应链接 `OpenMP::OpenMP_C`。
+- CMake 配置会探测 OpenMP；当前远程节点没有 CMake，远程入口使用 GCC 13.3 的 `-fopenmp` 直接构建。
 - 可执行文件输出到项目根目录：`run_matrix_multiplication`。
 - 数学库 `libm` 是必要依赖。
 
@@ -94,7 +94,7 @@ ssh -p 17255 nvidia@global.prd.ga.launchpad.nvidia.com
 - 杀死不属于本项目的进程，修改全局 CPU governor 或 NUMA 配置；
 - 把秘密、令牌、私钥、远程认证信息写入仓库或日志。
 
-清理只允许删除本项目明确生成的 `build/`、`*.out`、`*.err` 和 `jobs/.generated/` 内容；任何其他删除都必须先获得用户明确确认。远程命令优先使用只读探测或在项目目录内执行的构建命令。
+清理只允许删除本项目明确生成的 `build/`、`.remote-sync/`、`*.out`、`*.err` 内容；任何其他删除都必须先获得用户明确确认。远程命令优先使用只读探测或在项目目录内执行的构建命令。
 
 ## 代码与归档规范
 
@@ -112,9 +112,9 @@ ssh -p 17255 nvidia@global.prd.ga.launchpad.nvidia.com
 
 ## Git 与 GitHub
 
-本项目使用 Git 管理本地和远程 GitHub 仓库。提交前必须检查 `git diff`、`git status` 和敏感文件；不得提交构建产物、日志、密钥或机器本地配置。远程仓库 URL 和 GitHub 认证方式由用户后续提供或通过本机 Git credential/SSH agent 配置。
+本项目使用 Git 管理本地和公开 GitHub 仓库：`https://github.com/ziyang22/SRQ-26`。公开仓库只允许提交源代码、文档和可复现脚本，不得提交密码、token、私钥、构建产物、日志或机器本地配置。
 
-允许的同步动作是普通的 `git fetch`、`git pull --ff-only`、`git push`；首次配置远程仓库或执行 push 前需要用户明确提供/确认 GitHub 仓库地址。禁止 force push、覆盖远程历史或自动创建/删除远程仓库。
+提交前必须检查 `git diff --check`、`git status` 和敏感文件。远程同步使用普通的 `git fetch`、`git pull --ff-only`、`git push`；禁止 force push、覆盖远程历史或自动删除远程分支。远程机器通过公开仓库拉取代码，但 GitHub 写操作仍使用本机已配置的认证，不把凭据写入项目。
 
 ## 实验纪律
 
