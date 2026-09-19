@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__GNUC__) && defined(__x86_64__)
+#pragma GCC push_options
+#pragma GCC target("avx512f,fma")
+#endif
+
 static int multiply_sparse_b(const double* A, const double* B, double* C,
                              int M, int K, int N)
 {
@@ -118,3 +123,7 @@ void multiply_naive(const double* A, const double* B, double* C,
         }
     }
 }
+
+#if defined(__GNUC__) && defined(__x86_64__)
+#pragma GCC pop_options
+#endif
