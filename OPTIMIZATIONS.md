@@ -124,3 +124,14 @@
 - **原始数字**：case 时间 `0.024787/0.033491/0.095988/0.044987 s`；speedup `47.115/68.128/586.013/15.290x`；nominal throughput `346.5/513.0/2237.2/23.9 GFLOP/s`；加权 speedup `146.367x`，加权 nominal throughput `628.9 GFLOP/s`。
 - **旁置条件**：case 3 的 `2237.2 GFLOP/s` 是 dense-equivalent，分子包含被稀疏实现跳过的零乘加，不代表实际执行 FLOP/s。所有 case 的分母包含 sigmoid，但分子不计 sigmoid 操作。
 - **Outcome**: neutral；仅增加报告，不改变优化路径
+
+## EXP-010: 50%-peak stage baseline and phase decomposition (算子家族：7)
+
+- **动机**：冻结 1280 GFLOP/s 新目标的三次基线，并用默认关闭的诊断探针区分主要成本。
+- **环境**：Xeon Gold 6548Y+；GCC 13.3 `-O3 -std=c99 -fopenmp`；cpuset `0-31`；32 OpenMP 线程；commit `3559f62`；固定 seed `260919`。
+- **三次原始时间**：`0.024787/0.033491/0.095988/0.044987 s`、`0.026080/0.033381/0.093931/0.041649 s`、`0.026247/0.033237/0.096630/0.042247 s`。
+- **三次 speedup**：`47.115/68.128/586.013/15.290x`、`44.779/68.352/598.846/16.515x`、`44.494/68.649/582.120/16.282x`；加权 `146.367/149.002/145.565x`，中位数 `146.367x`。
+- **三次 nominal throughput**：`346.5/513.0/2237.2/23.9`、`329.4/514.7/2286.2/25.8`、`327.3/516.9/2222.4/25.4 GFLOP/s`；加权 `628.9/636.4/623.5 GFLOP/s`，中位数 `628.9 GFLOP/s`。
+- **诊断探针**：commit `4004469` 的 `SRQ_PROFILE_PHASES` 默认关闭；远端默认汇编确认不包含 profile 字符串或 `omp_get_wtime`。诊断运行得到 dense BLAS `0.022782/0.032734 s`；case 3 count/build/compute/free `0.010019/0.002381/0.069487/0.000002 s`，sigmoid `0.010851 s`；case 4 K=8 `0.036994 s`，sigmoid `0.007156 s`。
+- **推理链**：case 3 compute 占约 75%，是达到 1280 GFLOP/s 的主杠杆；B 计数/构建和 sigmoid 各约 12-13%。case 4 对 nominal 加权指标贡献很小，但对 speedup 权重最高。dense case 几乎全由 slab-BLAS 决定。
+- **Outcome**: neutral；作为新阶段固定基线
