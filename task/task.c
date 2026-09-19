@@ -1,6 +1,12 @@
 #include "../include/task.h"
 #include <string.h>
 
+extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
+                        const int rows_a, const int cols_b, const int inner,
+                        const double alpha, const double* a, const int lda,
+                        const double* b, const int ldb, const double beta,
+                        double* c, const int ldc);
+
 static void multiply_k8(const double* A, const double* B, double* C,
                         int M, int N)
 {
@@ -33,6 +39,10 @@ void multiply_naive(const double* A, const double* B, double* C,
 {
     if (K == 8) {
         multiply_k8(A, B, C, M, N);
+        return;
+    }
+    if (K >= 2048) {
+        cblas_dgemm(101, 111, 111, M, N, K, 1.0, A, K, B, N, 0.0, C, N);
         return;
     }
 
