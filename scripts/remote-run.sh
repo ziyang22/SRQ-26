@@ -17,6 +17,8 @@ REMOTE_CPUS=${SRQ_REMOTE_CPUS:-32}
 # local `origin` remote, because the local machine pushes over SSH while the compute
 # node pulls anonymously over HTTPS.
 REMOTE_GIT_URL=${SRQ_REMOTE_GIT_URL:-https://github.com/ziyang22/SRQ-26.git}
+REMOTE_OPENBLAS_ROOT=${SRQ_OPENBLAS_ROOT:-"/home/$REMOTE_USER/Ziyoung/deps/openblas"}
+REMOTE_SEED=${SRQ_REMOTE_SEED:-260919}
 SSH_OPTS=(-o ConnectTimeout=15 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
 if [ "${SRQ_SSH_FORWARD_AGENT:-false}" = true ]; then
   SSH_OPTS+=(-A)
@@ -51,7 +53,7 @@ fi
 REMOTE_CPU_LAST=$((REMOTE_CPUS - 1))
 
 ssh "${SSH_OPTS[@]}" -p "$REMOTE_PORT" "$REMOTE" \
-  "bash -s -- '$REMOTE_DIR' '$REMOTE_GIT_URL' '$BRANCH' '$COMMIT' '$MODE' '$REMOTE_CPUS' '$REMOTE_CPU_LAST'" <<'REMOTE_SCRIPT'
+  "bash -s -- '$REMOTE_DIR' '$REMOTE_GIT_URL' '$BRANCH' '$COMMIT' '$MODE' '$REMOTE_CPUS' '$REMOTE_CPU_LAST' '$REMOTE_OPENBLAS_ROOT' '$REMOTE_SEED'" <<'REMOTE_SCRIPT'
 set -euo pipefail
 remote_dir=$1
 remote_git_url=$2
@@ -60,6 +62,8 @@ commit=$4
 mode=$5
 cpu_count=$6
 cpu_last=$7
+openblas_root=$8
+seed=$9
 
 if [ ! -d "$remote_dir/.git" ]; then
   [ ! -e "$remote_dir" ] || { echo "Remote path exists but is not a Git checkout: $remote_dir" >&2; exit 2; }
@@ -81,6 +85,9 @@ export OMP_NUM_THREADS=$cpu_count
 export OMP_DYNAMIC=false
 export OMP_PROC_BIND=close
 export OMP_PLACES=cores
-printf 'remote_commit=%s cpuset=0-%s omp_threads=%s\n' "$commit" "$cpu_last" "$OMP_NUM_THREADS"
+export OPENBLAS_ROOT="$openblas_root"
+export OPENBLAS_NUM_THREADS="$cpu_count"
+export SRQ_SEED="$seed"
+printf 'remote_commit=%s cpuset=0-%s omp_threads=%s seed=%s openblas=%s\n' "$commit" "$cpu_last" "$OMP_NUM_THREADS" "$SRQ_SEED" "$OPENBLAS_ROOT"
 exec taskset -c "0-$cpu_last" ./run.sh "$mode"
 REMOTE_SCRIPT
