@@ -59,6 +59,7 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
             const double aik = A[(size_t)i * K + k];
             if (aik == 0.0)
                 continue;
+#pragma omp simd
             for (size_t p = row_offsets[k]; p < row_offsets[k + 1]; ++p)
                 c[columns[p]] += aik * values[p];
         }
