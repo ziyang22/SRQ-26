@@ -11,6 +11,10 @@
 #define PROFILE_PRINT(...) ((void)0)
 #endif
 
+#ifndef SRQ_DENSE_THREADS
+#define SRQ_DENSE_THREADS 32
+#endif
+
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
                         const int rows_a, const int cols_b, const int inner,
                         const double alpha, const double* a, const int lda,
@@ -102,7 +106,7 @@ static void multiply_dense_blas(const double* A, const double* B, double* C,
     const double t_start = PROFILE_NOW();
     const int saved_threads = openblas_get_num_threads();
     openblas_set_num_threads(1);
-#pragma omp parallel
+#pragma omp parallel num_threads(SRQ_DENSE_THREADS)
     {
         const int tid = omp_get_thread_num();
         const int threads = omp_get_num_threads();
