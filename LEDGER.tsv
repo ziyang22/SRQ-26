@@ -4,4 +4,4 @@
 # verdict: keep / reject / neutral
 # base_score/cand_score: 四个 case speedup 与 2:2:2:4 加权值，格式应在首条实验中固定
 exp_id	date	op_family	source	title	base_commit	base_score	cand_score	verdict	confound	note
-EXP-001	2026-09-19	7	external	OpenBLAS correctness oracle and fixed native Task baseline	3dfb264	1.000		neutral	OpenBLAS 0.3.28 is correctness-only; seed 260919; 5-run native Task medians fixed in baseline.tsv	Future candidate score is fixed native baseline / timed Task candidate; OpenBLAS time is excluded; all correctness checks passed; microbench recorded.
+EXP-001	2026-09-19	7	external	OpenBLAS correctness oracle and fixed native Task baseline	3aaaa6f	1.000	0.874	neutral	OpenBLAS 0.3.28 is correctness-only; seed 260919; 5-run native Task medians fixed in baseline.tsv	Candidate score is fixed native baseline / timed Task candidate; case speeds 0.691:0.720:0.978:0.991; all correctness checks passed; microbench recorded.

@@ -36,7 +36,7 @@ Five runs used the same seed and CPU/OpenMP settings before replacing the slow n
 | case 4 | 0.376709 | 0.687851 | `0.687851 / candidate` | passed in all runs |
 | Weighted `2:2:2:4` | | **fixed in `baseline.tsv`** | weighted fixed-baseline / candidate | all passed |
 
-The fixed comparison data is versioned in `baseline.tsv`. It contains the five-run medians for the original native Task baseline and the non-scored OpenBLAS oracle. The benchmark executable now uses the fixed native values for score calculation; OpenBLAS is called only before timing to produce the correctness reference. The raw five-run output was retained on the remote node at `~/Ziyoung/experiments/EXP-001-openblas-reference-20260919/benchmark-runs.txt`. The weighted value printed by the official harness is task/reference; its median was `0.227x`.
+The fixed comparison data is versioned in `baseline.tsv`. It contains the five-run medians for the original native Task baseline and the non-scored OpenBLAS oracle. The benchmark executable now uses the fixed native values for score calculation; OpenBLAS is called only before timing to produce the correctness reference. The raw five-run output was retained on the remote node at `~/Ziyoung/experiments/EXP-001-openblas-reference-20260919/benchmark-runs.txt`. The updated harness excludes OpenBLAS from timing and compares the timed Task candidate against the fixed native baseline. A verification run at commit `3aaaa6f` produced case speedups `0.691x`, `0.720x`, `0.978x`, `0.991x`, with weighted score `0.874x`; all four correctness checks passed.
 
 ## Hardware microbench
 
