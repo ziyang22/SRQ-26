@@ -2,6 +2,14 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef SRQ_PROFILE_PHASES
+#include <stdio.h>
+#define PROFILE_NOW() omp_get_wtime()
+#define PROFILE_PRINT(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define PROFILE_NOW() 0.0
+#define PROFILE_PRINT(...) ((void)0)
+#endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
                         const int rows_a, const int cols_b, const int inner,
@@ -19,6 +27,7 @@ extern void openblas_set_num_threads(int num_threads);
 static int multiply_sparse_b(const double* A, const double* B, double* C,
                              int M, int K, int N)
 {
+    const double t_start = PROFILE_NOW();
     size_t* row_offsets = malloc((size_t)(K + 1) * sizeof(*row_offsets));
     if (row_offsets == NULL)
         return 0;
@@ -32,6 +41,7 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
         row_offsets[k + 1] = row_offsets[k] + count;
     }
 
+    const double t_counted = PROFILE_NOW();
     const size_t nnz = row_offsets[K];
     if (nnz * 5 > (size_t)K * N) {
         free(row_offsets);
@@ -60,6 +70,7 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
         }
     }
 
+    const double t_built = PROFILE_NOW();
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < M; ++i) {
         double* c = C + (size_t)i * N;
@@ -74,15 +85,21 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
         }
     }
 
+    const double t_computed = PROFILE_NOW();
     free(values);
     free(columns);
     free(row_offsets);
+    const double t_freed = PROFILE_NOW();
+    PROFILE_PRINT("PROFILE sparse count=%.6f build=%.6f compute=%.6f free=%.6f nnz=%zu\n",
+                  t_counted - t_start, t_built - t_counted,
+                  t_computed - t_built, t_freed - t_computed, nnz);
     return 1;
 }
 
 static void multiply_dense_blas(const double* A, const double* B, double* C,
                                 int M, int K, int N)
 {
+    const double t_start = PROFILE_NOW();
     const int saved_threads = openblas_get_num_threads();
     openblas_set_num_threads(1);
 #pragma omp parallel
@@ -98,11 +115,14 @@ static void multiply_dense_blas(const double* A, const double* B, double* C,
         }
     }
     openblas_set_num_threads(saved_threads);
+    PROFILE_PRINT("PROFILE dense_blas=%.6f M=%d K=%d N=%d\n",
+                  PROFILE_NOW() - t_start, M, K, N);
 }
 
 static void multiply_k8(const double* A, const double* B, double* C,
                         int M, int N)
 {
+    const double t_start = PROFILE_NOW();
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < M; ++i) {
         const double* a = A + (size_t)i * 8;
@@ -122,6 +142,8 @@ static void multiply_k8(const double* A, const double* B, double* C,
                  + a7 * B[(size_t)7 * N + j];
         }
     }
+    PROFILE_PRINT("PROFILE k8=%.6f M=%d N=%d\n",
+                  PROFILE_NOW() - t_start, M, N);
 }
 
 /*

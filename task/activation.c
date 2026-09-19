@@ -1,6 +1,14 @@
 #include "../include/activation.h"
 #include <math.h>
 #include <omp.h>
+#ifdef SRQ_PROFILE_PHASES
+#include <stdio.h>
+#define PROFILE_NOW() omp_get_wtime()
+#define PROFILE_PRINT(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define PROFILE_NOW() 0.0
+#define PROFILE_PRINT(...) ((void)0)
+#endif
 
 #if defined(__GNUC__) && defined(__x86_64__)
 typedef double vector8d __attribute__((vector_size(64), aligned(1)));
@@ -44,6 +52,7 @@ static void epilogue_chunk(double* data, size_t first, size_t last)
  */
 void epilogue_optimized(double* data, size_t size)
 {
+    const double t_start = PROFILE_NOW();
 #pragma omp parallel
     {
         const size_t tid = (size_t)omp_get_thread_num();
@@ -52,4 +61,6 @@ void epilogue_optimized(double* data, size_t size)
         const size_t last = size * (tid + 1) / threads;
         epilogue_chunk(data, first, last);
     }
+    PROFILE_PRINT("PROFILE activation=%.6f size=%zu\n",
+                  PROFILE_NOW() - t_start, size);
 }
