@@ -38,6 +38,9 @@
 #ifndef SRQ_SPARSE_UNROLL
 #define SRQ_SPARSE_UNROLL 0
 #endif
+#ifndef SRQ_SPARSE_M_TILE
+#define SRQ_SPARSE_M_TILE 1
+#endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
                         const int rows_a, const int cols_b, const int inner,
@@ -285,6 +288,28 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
     }
 
     const double t_built = PROFILE_NOW();
+#if SRQ_SPARSE_M_TILE > 1
+#pragma omp parallel for schedule(static)
+    for (int first_i = 0; first_i < M; first_i += SRQ_SPARSE_M_TILE) {
+        const int last_i = first_i + SRQ_SPARSE_M_TILE < M
+                         ? first_i + SRQ_SPARSE_M_TILE : M;
+        memset(C + (size_t)first_i * N, 0,
+               (size_t)(last_i - first_i) * N * sizeof(double));
+        for (int k = 0; k < K; ++k) {
+            for (int i = first_i; i < last_i; ++i) {
+                const double aik = A[(size_t)i * K + k];
+                if (aik == 0.0)
+                    continue;
+                double* c = C + (size_t)i * N;
+#if SRQ_SPARSE_SIMD
+#pragma omp simd
+#endif
+                for (size_t p = row_offsets[k]; p < row_offsets[k + 1]; ++p)
+                    c[columns[p]] += aik * values[p];
+            }
+        }
+    }
+#else
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < M; ++i) {
         double* c = C + (size_t)i * N;
@@ -304,6 +329,7 @@ static int multiply_sparse_b(const double* A, const double* B, double* C,
 #endif
         }
     }
+#endif
 
     const double t_computed = PROFILE_NOW();
     free(values);
