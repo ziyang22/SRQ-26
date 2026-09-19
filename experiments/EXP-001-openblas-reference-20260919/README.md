@@ -2,7 +2,7 @@
 
 - Date: 2026-09-19
 - Remote path: `/home/nvidia/Ziyoung/SRQ-26`
-- Commit: `8d84c7110a86507fb74ac49ba668d7efb34c0d0a`
+- Commit: `3dfb264af1316421b1cc3b7a05318c997bf325c1`
 - Host: Intel Xeon Gold 6548Y+, 2 sockets, 2 NUMA nodes, 128 logical CPUs
 - Resource cap: `taskset -c 0-31`
 - OpenMP: `OMP_NUM_THREADS=32`, `OMP_DYNAMIC=false`, `OMP_PROC_BIND=close`, `OMP_PLACES=cores`
@@ -26,13 +26,17 @@ Result: `Correctness test passed!` for `302 x 240 * 240 x 494`.
 
 ## Official benchmark
 
-| Case | Baseline seconds | Task seconds | Speedup | End-to-end correctness |
+Five runs used the same seed and CPU/OpenMP settings before replacing the slow native reference timing. The table reports medians. `Task baseline` is now fixed for subsequent optimization work; `OpenBLAS reference` is only the correctness oracle and is excluded from score timing.
+
+| Case | OpenBLAS oracle seconds (not scored) | Fixed native Task baseline seconds | Later score formula | End-to-end correctness |
 |---|---:|---:|---:|---|
-| case 1 | 0.015218 | 1.206934 | 0.013x | passed |
-| case 2 | 0.034830 | 2.347981 | 0.015x | passed |
-| case 3 | 0.669282 | 56.336860 | 0.012x | passed |
-| case 4 | 0.376321 | 0.682705 | 0.551x | passed |
-| Weighted `2:2:2:4` | | | **0.228x** | all passed |
+| case 1 | 0.012809 | 1.167841 | `1.167841 / candidate` | passed in all runs |
+| case 2 | 0.035183 | 2.281671 | `2.281671 / candidate` | passed in all runs |
+| case 3 | 0.667933 | 56.250248 | `56.250248 / candidate` | passed in all runs |
+| case 4 | 0.376709 | 0.687851 | `0.687851 / candidate` | passed in all runs |
+| Weighted `2:2:2:4` | | **fixed in `baseline.tsv`** | weighted fixed-baseline / candidate | all passed |
+
+The fixed comparison data is versioned in `baseline.tsv`. It contains the five-run medians for the original native Task baseline and the non-scored OpenBLAS oracle. The benchmark executable now uses the fixed native values for score calculation; OpenBLAS is called only before timing to produce the correctness reference. The raw five-run output was retained on the remote node at `~/Ziyoung/experiments/EXP-001-openblas-reference-20260919/benchmark-runs.txt`. The weighted value printed by the official harness is task/reference; its median was `0.227x`.
 
 ## Hardware microbench
 

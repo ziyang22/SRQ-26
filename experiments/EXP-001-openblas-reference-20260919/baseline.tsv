@@ -1,0 +1,8 @@
+# Fixed Task baseline: median of 5 remote runs, seed=260919, cpuset=0-31, OMP_NUM_THREADS=32
+# These are measured reference values for later speedup comparison, not runtime constants.
+case	M	K	N	task_seconds_median	openblas_reference_seconds_median
+1	1024	4096	1024	1.167841	0.012809
+2	2048	2048	2048	2.281671	0.035183
+3	10240	1024	10240	56.250248	0.667933
+4	8192	8	8192	0.687851	0.376709
+weighted_2_2_2_4	0.227
