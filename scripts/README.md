@@ -8,6 +8,15 @@
 | `remote-run.sh` | 从公开 GitHub 同步后，在远程节点 32 逻辑 CPU 内运行 |
 | `check-layout.sh` | 检查源码是否放在规定目录 |
 
+## 同步路径
+
+本机与远程节点到 GitHub 的网络路径不同，因此分开配置：
+
+- 本机 `origin` 用 SSH（`git@github.com:ziyang22/SRQ-26.git`）推送和拉取；
+- 计算节点用 `SRQ_REMOTE_GIT_URL`（默认 `https://github.com/ziyang22/SRQ-26.git`）匿名克隆。
+
+两者指向同一个公开仓库，脚本会校验远程 HEAD 与本地 commit 一致后才运行。
+
 ## remote-run.sh 行为
 
 ```sh
@@ -28,6 +37,7 @@ SRQ_REMOTE_PORT   默认 17255
 SRQ_REMOTE_USER   默认 nvidia
 SRQ_REMOTE_DIR    默认 /home/nvidia/SRQ-26
 SRQ_REMOTE_CPUS   默认 32，允许范围 1-32
+SRQ_REMOTE_GIT_URL 默认 https://github.com/ziyang22/SRQ-26.git
 ```
 
 认证由本机 SSH 配置或 SSH agent 提供；脚本不读取也不写入任何凭据。

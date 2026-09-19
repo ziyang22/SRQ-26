@@ -116,6 +116,8 @@ ssh -p 17255 nvidia@global.prd.ga.launchpad.nvidia.com
 
 提交前必须检查 `git diff --check`、`git status` 和敏感文件。远程同步使用普通的 `git fetch`、`git pull --ff-only`、`git push`；禁止 force push、覆盖远程历史或自动删除远程分支。远程机器通过公开仓库拉取代码，但 GitHub 写操作仍使用本机已配置的认证，不把凭据写入项目。
 
+本机 `origin` 当前是 SSH 地址；若本地网络策略变化，不要改用会泄露凭据的 URL 形式，也不要修改全局代理或系统 hosts 来绕过，先向用户确认。
+
 ## 实验纪律
 
 - 性能数据必须标注机器、编译器、线程数和关键环境变量。

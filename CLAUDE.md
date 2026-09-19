@@ -83,6 +83,7 @@ cmake --build build --parallel
 - `scripts/check-layout.sh` 用于检查目录布局。
 - Git 提交前执行 `git diff --check`、`git status` 并确认没有秘密或构建产物。
 - 公开仓库地址：<https://github.com/ziyang22/SRQ-26>，远程机器从它拉取代码。
+- 本机 `origin` 用 SSH（当前网络下 HTTPS 到 `github.com` 不可用）；计算节点用 HTTPS 匿名拉取，两者都指向同一个公开仓库。
 - 同步只用普通 `git fetch`、`git pull --ff-only`、`git push`；禁止 force push、覆盖远程历史或删除远程分支。
 - GitHub 写操作（push、改设置、建仓库）只在本机用已配置的认证执行，不把凭据写入项目或日志。
 
