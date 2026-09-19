@@ -135,3 +135,14 @@
 - **诊断探针**：commit `4004469` 的 `SRQ_PROFILE_PHASES` 默认关闭；远端默认汇编确认不包含 profile 字符串或 `omp_get_wtime`。诊断运行得到 dense BLAS `0.022782/0.032734 s`；case 3 count/build/compute/free `0.010019/0.002381/0.069487/0.000002 s`，sigmoid `0.010851 s`；case 4 K=8 `0.036994 s`，sigmoid `0.007156 s`。
 - **推理链**：case 3 compute 占约 75%，是达到 1280 GFLOP/s 的主杠杆；B 计数/构建和 sigmoid 各约 12-13%。case 4 对 nominal 加权指标贡献很小，但对 speedup 权重最高。dense case 几乎全由 slab-BLAS 决定。
 - **Outcome**: neutral；作为新阶段固定基线
+
+## EXP-011: shape-specific two-dimensional dense grids (算子家族：3)
+
+- **动机**：原 `32x1` M-slab 让每个线程重复处理完整 B packing；测试固定 32 线程的 MxN 输出网格是否更适合两个 dense shape。
+- **扫描**：`32x1/16x2/8x4/4x8/2x16/1x32`。单轮 case 1 最佳 `4x8` 为 `0.019124 s`、`449.2 GFLOP/s`；case 2 最佳 `16x2` 为 `0.030890 s`、`556.2 GFLOP/s`。
+- **保留改动**：commit `cff9293` 按 K 分派，case 1 使用 `4x8`，case 2 使用 `16x2`；每个网格总线程数仍为 32。
+- **正确性**：`16x2` 随机 correctness 输出 `Correctness test passed!`；所有扫描和 A-B-A 正式 case 均通过。
+- **A-B-A 原始数字**：强制 `32x1` A1 dense 时间 `0.025728/0.033182 s`；shape-specific B `0.023096/0.031916 s`；A2 `0.024101/0.034860 s`。B 相对两个 A 时间均值，case 1 快约 7.3%，case 2 快约 6.2%。
+- **旁置条件**：case 3/4 不读取 dense grid 宏，其运行波动仅反映共享节点噪声，不用于本实验判定。
+- **推理链**：两个 dense shape 的最佳网格不同，支持按 shape 分派；A-B-A 中 B 对两个 dense case 均改善，幅度远高于 2%。
+- **Outcome**: keep

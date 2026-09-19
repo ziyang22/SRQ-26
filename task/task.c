@@ -23,6 +23,9 @@
 #ifndef SRQ_DENSE_CASE2_N_THREADS
 #define SRQ_DENSE_CASE2_N_THREADS 2
 #endif
+#ifndef SRQ_SPARSE_N_BLOCKS
+#define SRQ_SPARSE_N_BLOCKS 1
+#endif
 
 extern void cblas_dgemm(const int order, const int trans_a, const int trans_b,
                         const int rows_a, const int cols_b, const int inner,
@@ -35,6 +38,126 @@ extern void openblas_set_num_threads(int num_threads);
 #if defined(__GNUC__) && defined(__x86_64__)
 #pragma GCC push_options
 #pragma GCC target("avx512f,fma")
+#endif
+
+#if SRQ_SPARSE_N_BLOCKS > 1
+static int multiply_sparse_blocked(const double* A, const double* B, double* C,
+                                   int M, int K, int N)
+{
+    const int blocks = SRQ_SPARSE_N_BLOCKS;
+    const size_t stride = (size_t)K + 1;
+    size_t* b_offsets = calloc((size_t)blocks * stride, sizeof(*b_offsets));
+    size_t* a_offsets = malloc((size_t)(M + 1) * sizeof(*a_offsets));
+    if (b_offsets == NULL || a_offsets == NULL) {
+        free(a_offsets);
+        free(b_offsets);
+        return 0;
+    }
+
+    a_offsets[0] = 0;
+    for (int i = 0; i < M; ++i) {
+        size_t count = 0;
+        const double* a = A + (size_t)i * K;
+        for (int k = 0; k < K; ++k)
+            count += a[k] != 0.0;
+        a_offsets[i + 1] = a_offsets[i] + count;
+    }
+
+    for (int k = 0; k < K; ++k) {
+        const double* b = B + (size_t)k * N;
+        for (int j = 0; j < N; ++j) {
+            if (b[j] != 0.0) {
+                const int block = (int)((long long)j * blocks / N);
+                ++b_offsets[(size_t)block * stride + k + 1];
+            }
+        }
+    }
+
+    size_t b_nnz = 0;
+    for (int block = 0; block < blocks; ++block) {
+        size_t* offsets = b_offsets + (size_t)block * stride;
+        for (int k = 0; k < K; ++k) {
+            const size_t count = offsets[k + 1];
+            offsets[k] = b_nnz;
+            b_nnz += count;
+        }
+        offsets[K] = b_nnz;
+    }
+    if (b_nnz * 5 > (size_t)K * N) {
+        free(a_offsets);
+        free(b_offsets);
+        return 0;
+    }
+
+    const size_t a_nnz = a_offsets[M];
+    int* a_columns = malloc(a_nnz * sizeof(*a_columns));
+    double* a_values = malloc(a_nnz * sizeof(*a_values));
+    int* b_columns = malloc(b_nnz * sizeof(*b_columns));
+    double* b_values = malloc(b_nnz * sizeof(*b_values));
+    if (a_columns == NULL || a_values == NULL
+        || b_columns == NULL || b_values == NULL) {
+        free(b_values);
+        free(b_columns);
+        free(a_values);
+        free(a_columns);
+        free(a_offsets);
+        free(b_offsets);
+        return 0;
+    }
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < M; ++i) {
+        size_t p = a_offsets[i];
+        const double* a = A + (size_t)i * K;
+        for (int k = 0; k < K; ++k) {
+            if (a[k] != 0.0) {
+                a_columns[p] = k;
+                a_values[p] = a[k];
+                ++p;
+            }
+        }
+    }
+
+#pragma omp parallel for schedule(static)
+    for (int k = 0; k < K; ++k) {
+        size_t positions[SRQ_SPARSE_N_BLOCKS];
+        for (int block = 0; block < blocks; ++block)
+            positions[block] = b_offsets[(size_t)block * stride + k];
+        const double* b = B + (size_t)k * N;
+        for (int j = 0; j < N; ++j) {
+            if (b[j] != 0.0) {
+                const int block = (int)((long long)j * blocks / N);
+                const size_t p = positions[block]++;
+                b_columns[p] = j;
+                b_values[p] = b[j];
+            }
+        }
+    }
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < M; ++i) {
+        double* c = C + (size_t)i * N;
+        memset(c, 0, (size_t)N * sizeof(double));
+        for (int block = 0; block < blocks; ++block) {
+            const size_t* offsets = b_offsets + (size_t)block * stride;
+            for (size_t q = a_offsets[i]; q < a_offsets[i + 1]; ++q) {
+                const int k = a_columns[q];
+                const double aik = a_values[q];
+#pragma omp simd
+                for (size_t p = offsets[k]; p < offsets[k + 1]; ++p)
+                    c[b_columns[p]] += aik * b_values[p];
+            }
+        }
+    }
+
+    free(b_values);
+    free(b_columns);
+    free(a_values);
+    free(a_columns);
+    free(a_offsets);
+    free(b_offsets);
+    return 1;
+}
 #endif
 
 static int multiply_sparse_b(const double* A, const double* B, double* C,
@@ -181,9 +304,15 @@ void multiply_naive(const double* A, const double* B, double* C,
         multiply_dense_blas(A, B, C, M, K, N);
         return;
     }
-    if (M >= 4096 && N >= 4096 && K <= 1024
-        && multiply_sparse_b(A, B, C, M, K, N))
-        return;
+    if (M >= 4096 && N >= 4096 && K <= 1024) {
+#if SRQ_SPARSE_N_BLOCKS > 1
+        if (multiply_sparse_blocked(A, B, C, M, K, N))
+            return;
+#else
+        if (multiply_sparse_b(A, B, C, M, K, N))
+            return;
+#endif
+    }
 
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < M; ++i) {
