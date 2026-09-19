@@ -21,6 +21,11 @@ if command -v cmake >/dev/null 2>&1; then
 else
   compiler=${CC:-gcc}
   command -v "$compiler" >/dev/null 2>&1 || { echo "找不到 cmake 或 C 编译器 $compiler" >&2; exit 127; }
+  OPENBLAS_ROOT=${OPENBLAS_ROOT:-"$HOME/Ziyoung/deps/openblas"}
+  [ -f "$OPENBLAS_ROOT/lib/libopenblas.so" ] || [ -f "$OPENBLAS_ROOT/lib/libopenblas.a" ] || {
+    echo "找不到 OpenBLAS，请设置 OPENBLAS_ROOT（当前: $OPENBLAS_ROOT）" >&2
+    exit 2
+  }
   omp_flag=()
   if printf 'int main(void){return 0;}\n' | "$compiler" -x c -fopenmp -o /tmp/srq-openmp-check - >/dev/null 2>&1; then
     omp_flag=(-fopenmp)
@@ -29,6 +34,9 @@ else
   "$compiler" -O3 -std=c99 "${omp_flag[@]}" \
     "$ROOT/src/main.c" "$ROOT/task/task.c" \
     "$ROOT/src/activ_baseline.c" "$ROOT/task/activation.c" \
+    "$ROOT/task/blas_reference.c" \
+    -I"$OPENBLAS_ROOT/include" -L"$OPENBLAS_ROOT/lib" \
+    -Wl,-rpath,"$OPENBLAS_ROOT/lib" -lopenblas \
     -o "$ROOT/run_matrix_multiplication" -lm
 fi
 

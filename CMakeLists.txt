@@ -16,11 +16,22 @@ endif()
 find_package(OpenMP)
 
 
+set(OPENBLAS_ROOT "$ENV{OPENBLAS_ROOT}" CACHE PATH "OpenBLAS installation prefix")
+if(NOT EXISTS "${OPENBLAS_ROOT}/lib/libopenblas.so" AND NOT EXISTS "${OPENBLAS_ROOT}/lib/libopenblas.a")
+    message(FATAL_ERROR "OpenBLAS not found. Set OPENBLAS_ROOT to a user-local installation.")
+endif()
+
 add_executable(run_matrix_multiplication
     src/main.c
     task/task.c
     src/activ_baseline.c
     task/activation.c
+    task/blas_reference.c
+)
+target_include_directories(run_matrix_multiplication PRIVATE "${OPENBLAS_ROOT}/include")
+target_link_directories(run_matrix_multiplication PRIVATE "${OPENBLAS_ROOT}/lib")
+set_target_properties(run_matrix_multiplication PROPERTIES
+    BUILD_RPATH "${OPENBLAS_ROOT}/lib"
 )
 target_link_libraries(run_matrix_multiplication m)
 if(OpenMP_C_FOUND)

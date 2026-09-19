@@ -25,20 +25,10 @@ static double rand_lcg(int* localSeed)
 static int g_rng_seed = 1;
 
 // -----------------------------------------------------------
-// 冻结的参考 matmul（baseline 专用，禁止修改）
+// Reference matmul: OpenBLAS CBLAS dgemm implementation.
 // -----------------------------------------------------------
-// 与 task.c 优化的实现完全独立，作为 baseline 计时和正确性验证的固定基准。
-static void multiply_reference(const double* A, const double* B, double* C, int M, int K, int N) {
-    memset(C, 0, (size_t)M * N * sizeof(double));
-    for (int i = 0; i < M; ++i) {
-        for (int k = 0; k < K; ++k) {
-            double aik = A[i * K + k];
-            for (int j = 0; j < N; ++j) {
-                C[i * N + j] += aik * B[k * N + j];
-            }
-        }
-    }
-}
+void multiply_reference(const double* A, const double* B, double* C,
+                        int M, int K, int N);
 
 // -----------------------------------------------------------
 // 矩阵定义和基本操作
@@ -216,10 +206,21 @@ void run_benchmark() {
 // 主函数
 // -----------------------------------------------------------
 int main(int argc, char* argv[]) {
-    // 用 time 播种全局随机种子（须为正，范围 [1, 2^31-2]）
-    g_rng_seed = (int)(time(NULL) % 2147483647);
-    if (g_rng_seed <= 0) g_rng_seed = 1;
-    // 预热：丢弃前几个输出，避免相邻秒的种子首个抽样过于接近
+    // SRQ_SEED is optional; without it preserve the original time-based behavior.
+    const char* seed_text = getenv("SRQ_SEED");
+    if (seed_text != NULL && seed_text[0] != '\0') {
+        char* end = NULL;
+        long parsed = strtol(seed_text, &end, 10);
+        if (*end != '\0' || parsed < 1 || parsed >= 2147483647L) {
+            fprintf(stderr, "SRQ_SEED must be an integer in [1, 2147483646]\n");
+            return 2;
+        }
+        g_rng_seed = (int)parsed;
+    } else {
+        g_rng_seed = (int)(time(NULL) % 2147483647);
+        if (g_rng_seed <= 0) g_rng_seed = 1;
+    }
+    // Warm up the generator as in the original harness.
     for (int w = 0; w < 8; ++w) (void)rand_lcg(&g_rng_seed);
 
     if (argc > 1 && strcmp(argv[1], "test") == 0) {
